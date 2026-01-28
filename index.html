@@ -330,7 +330,7 @@
     }
 
     .hl {
-      background: #E8F5E9 !important; /* 매우 연한 연두 */
+      background: #E8F5E9 !important;
     }
 
     .btn-primary {
@@ -396,12 +396,21 @@
               순이익이 양수 강조
             </label>
           </div>
+
+          <div class="control-group">
+            <label>
+              <input type="checkbox" id="filterPositiveRealizedProfit" onchange="renderAll()">
+              확정손익금이 양수 강조
+            </label>
+          </div>
+
           <button class="btn-secondary" onclick="clearAllFilters()">필터 초기화</button>
         </div>
 
         <div class="hint">
-          - “강조”는 데이터 삭제가 아니라 <b>해당 그룹의 익절/손절/순이익 3줄</b>을 한 번에 연두색 표시예요.<br/>
+          - “강조”는 데이터 삭제가 아니라 <b>해당 그룹의 5개 지표 줄(익절/손절/확정손익/미실현/순이익)</b>을 한 번에 연두색 표시예요.<br/>
           - 부제목 행(예: 313 - 15%)은 <b>그룹마다 반복</b> 표시되며, 강조 대상에서 제외돼요.<br/>
+          - 필터를 여러 개 켜면 <b>교집합(AND)</b>만 강조돼요.<br/>
           - 로직 파일은 <b>Total_Result</b> 시트를 우선 사용하고, 없으면 첫 시트를 사용해요.<br/>
           - 파일 내부에서 <b>‘Group Name’ 헤더가 있는 행</b>부터 자동 인식해요.
         </div>
@@ -430,7 +439,7 @@
     let logicGroups = [];
 
     // group schema:
-    // { id, subtitle, files:[{name, rows:[]}], collapsed:false, merged:{ [groupName]: {tp, sl, np} } }
+    // { id, subtitle, files:[{name, rows:[]}], collapsed:false, merged:{ [groupName]: {tp, sl, rp, up, np} } }
 
     // ---------------------------
     // 유틸
@@ -602,21 +611,23 @@
 
     // ---------------------------
     // 병합 규칙: 같은 로직 집단 내부에서 그룹명 중복이면
-    // 익절횟수/손절횟수/순이익 3개만 합산
+    // 익절횟수/손절횟수/확정손익금/미실현손익/순이익 5개 합산
     // ---------------------------
     function rebuildMerged() {
       for (const g of logicGroups) {
-        const map = {}; // groupName -> {tp, sl, np}
+        const map = {}; // groupName -> {tp, sl, rp, up, np}
 
         for (const f of g.files) {
           for (const row of (f.rows || [])) {
             const name = String(row["Group Name"] || row["그룹명"] || "").trim();
             if (!name) continue;
 
-            if (!map[name]) map[name] = { tp: 0, sl: 0, np: 0 };
+            if (!map[name]) map[name] = { tp: 0, sl: 0, rp: 0, up: 0, np: 0 };
 
             map[name].tp += toNum(row["익절횟수"]);
             map[name].sl += toNum(row["손절횟수"]);
+            map[name].rp += toNum(row["확정손익금"]);
+            map[name].up += toNum(row["미실현손익"]);
             map[name].np += toNum(row["순이익"]);
           }
         }
@@ -699,26 +710,27 @@
     // ---------------------------
     // 강조 규칙
     // - 부제목 행은 강조 제외
-    // - 익절/손절/순이익 3줄을 "한 번에" 같이 강조
-    // - 두 필터 동시 체크 시 교집합만 강조
+    // - 5개 지표 줄을 "한 번에" 같이 강조
+    // - 여러 필터 동시 체크 시 교집합(AND)만 강조
     // ---------------------------
-    function shouldHighlightCell(groupName, g, filterStopLoss, filterPositiveProfit, stopLossThreshold) {
+    function shouldHighlightCell(groupName, g, filterStopLoss, filterPositiveProfit, filterPositiveRealizedProfit, stopLossThreshold) {
       const has = !!(g.merged && g.merged[groupName]);
       if (!has) return false;
 
       const v = g.merged[groupName];
-      const condSL = toNum(v.sl) <= stopLossThreshold;
-      const condNP = toNum(v.np) > 0;
+      const tests = [];
 
-      if (filterStopLoss && filterPositiveProfit) return condSL && condNP; // 교집합
-      if (filterStopLoss) return condSL;
-      if (filterPositiveProfit) return condNP;
-      return false;
+      if (filterStopLoss) tests.push(toNum(v.sl) <= stopLossThreshold);
+      if (filterPositiveProfit) tests.push(toNum(v.np) > 0);
+      if (filterPositiveRealizedProfit) tests.push(toNum(v.rp) > 0);
+
+      if (tests.length === 0) return false;
+      return tests.every(Boolean);
     }
 
     // ---------------------------
     // 렌더: 결과 테이블(미리보기)
-    // - 첨부 이미지처럼: 그룹당 4행(부제목 1행 + 지표 3행)
+    // - 그룹당 6행(부제목 1행 + 지표 5행)
     // - 부제목은 그룹마다 반복 표시(로직당 2칸 colspan 병합)
     // ---------------------------
     function renderResultTable() {
@@ -727,6 +739,7 @@
 
       const filterStopLoss = document.getElementById("filterStopLoss").checked;
       const filterPositiveProfit = document.getElementById("filterPositiveProfit").checked;
+      const filterPositiveRealizedProfit = document.getElementById("filterPositiveRealizedProfit").checked;
       const stopLossThreshold = parseInt(document.getElementById("stopLossThreshold").value, 10) || 0;
 
       document.getElementById("stopLossThreshold").disabled = !filterStopLoss;
@@ -760,29 +773,37 @@
       allNames.forEach((name, i) => {
         // (1) 부제목 행 (그룹마다 반복, 로직당 colspan=2 병합)
         html += `<tr>`;
-        html += `<td rowspan="4">${i + 1}</td>`;
-        html += `<td rowspan="4" class="group-name">${escapeHtml(name)}</td>`;
+        html += `<td rowspan="6">${i + 1}</td>`;
+        html += `<td rowspan="6" class="group-name">${escapeHtml(name)}</td>`;
         logicGroups.forEach((g) => {
           html += `<td colspan="2" class="subtitle-cell">${escapeHtml(g.subtitle || "")}</td>`;
         });
         html += `</tr>`;
 
-        // (2) 익절/손절/순이익 3행
+        // (2) 5개 지표 행
         const metricRows = [
-          { label: "익절횟수", key: "tp", fmt: (v) => (v === "" ? "" : fmtInt(v)) },
-          { label: "손절횟수", key: "sl", fmt: (v) => (v === "" ? "" : fmtInt(v)) },
-          { label: "순이익",   key: "np", fmt: (v) => (v === "" ? "" : fmtFloat2(v)) }
+          { label: "익절횟수",   key: "tp", fmt: (v) => (v === "" ? "" : fmtInt(v)) },
+          { label: "손절횟수",   key: "sl", fmt: (v) => (v === "" ? "" : fmtInt(v)) },
+          { label: "확정손익금", key: "rp", fmt: (v) => (v === "" ? "" : fmtFloat2(v)) },
+          { label: "미실현손익", key: "up", fmt: (v) => (v === "" ? "" : fmtFloat2(v)) },
+          { label: "순이익",     key: "np", fmt: (v) => (v === "" ? "" : fmtFloat2(v)) }
         ];
 
         metricRows.forEach(m => {
           html += `<tr>`;
           logicGroups.forEach((g) => {
             const exists = (g.merged && g.merged[name]);
-            const v = exists ? g.merged[name] : { tp: "", sl: "", np: "" };
+            const v = exists ? g.merged[name] : { tp: "", sl: "", rp: "", up: "", np: "" };
 
-            const isHL = shouldHighlightCell(name, g, filterStopLoss, filterPositiveProfit, stopLossThreshold);
+            const isHL = shouldHighlightCell(
+              name,
+              g,
+              filterStopLoss,
+              filterPositiveProfit,
+              filterPositiveRealizedProfit,
+              stopLossThreshold
+            );
 
-            // 강조는 3행 모두 동일하게 적용(부제목 행 제외)
             html += `<td class="metric ${isHL ? "hl" : ""}">${m.label}</td>`;
             html += `<td class="${isHL ? "hl" : ""}">${m.fmt(v[m.key])}</td>`;
           });
@@ -804,16 +825,17 @@
     function clearAllFilters() {
       document.getElementById("filterStopLoss").checked = false;
       document.getElementById("filterPositiveProfit").checked = false;
+      document.getElementById("filterPositiveRealizedProfit").checked = false;
       document.getElementById("stopLossThreshold").value = "0";
       renderAll();
     }
 
     // ---------------------------
     // 결과 엑셀 다운로드
-    // - 첨부 이미지와 동일 형식:
+    // - 동일 형식:
     //   1) 헤더 1행 (NO/그룹명/로직n(2칸 병합))
-    //   2) 그룹당 4행 (부제목 1행 + 익절/손절/순이익 3행)
-    //   3) NO/그룹명은 4행 rowspan 병합
+    //   2) 그룹당 6행 (부제목 1행 + 5지표)
+    //   3) NO/그룹명은 6행 rowspan 병합
     //   4) 부제목은 로직당 2칸 병합
     // ---------------------------
     function downloadResultExcel() {
@@ -831,7 +853,6 @@
 
       const logicCount = logicGroups.length;
 
-      // AOA 구성
       const aoa = [];
 
       // Row 1: 헤더 1행
@@ -839,18 +860,20 @@
       for (let i = 0; i < logicCount; i++) header.push(`로직${i + 1}`, "");
       aoa.push(header);
 
-      // Body: 그룹당 4행 (부제목 + 3지표)
+      // Body: 그룹당 6행 (부제목 + 5지표)
       allNames.forEach((name, idx) => {
         // (1) 부제목 행
         const sub = [idx + 1, name];
         for (let i = 0; i < logicCount; i++) sub.push(logicGroups[i].subtitle || "", "");
         aoa.push(sub);
 
-        // (2) 익절/손절/순이익 3행
+        // (2) 5지표 행
         const rows = [
-          { label: "익절횟수", key: "tp", val: (v) => (v === "" ? "" : Math.round(toNum(v))) },
-          { label: "손절횟수", key: "sl", val: (v) => (v === "" ? "" : Math.round(toNum(v))) },
-          { label: "순이익",   key: "np", val: (v) => (v === "" ? "" : (Math.round(toNum(v) * 100) / 100)) }
+          { label: "익절횟수",   key: "tp", val: (v) => (v === "" ? "" : Math.round(toNum(v))) },
+          { label: "손절횟수",   key: "sl", val: (v) => (v === "" ? "" : Math.round(toNum(v))) },
+          { label: "확정손익금", key: "rp", val: (v) => (v === "" ? "" : (Math.round(toNum(v) * 100) / 100)) },
+          { label: "미실현손익", key: "up", val: (v) => (v === "" ? "" : (Math.round(toNum(v) * 100) / 100)) },
+          { label: "순이익",     key: "np", val: (v) => (v === "" ? "" : (Math.round(toNum(v) * 100) / 100)) }
         ];
 
         rows.forEach(r => {
@@ -858,7 +881,7 @@
           for (let i = 0; i < logicCount; i++) {
             const g = logicGroups[i];
             const exists = (g.merged && g.merged[name]);
-            const v = exists ? g.merged[name] : { tp: "", sl: "", np: "" };
+            const v = exists ? g.merged[name] : { tp: "", sl: "", rp: "", up: "", np: "" };
             line.push(r.label, r.val(v[r.key]));
           }
           aoa.push(line);
@@ -869,8 +892,8 @@
 
       // 열 너비
       ws["!cols"] = [
-        { wch: 6 },   // NO
-        { wch: 18 },  // 그룹명
+        { wch: 6 },
+        { wch: 18 },
         ...Array.from({ length: logicCount }, () => ([{ wch: 12 }, { wch: 12 }])).flat()
       ];
 
@@ -884,13 +907,13 @@
       }
 
       // 바디 시작 row index = 1
-      // 그룹당 4행: sub(0) + tp(1) + sl(2) + np(3)
+      // 그룹당 6행: sub(0) + 5 metrics
       for (let gi = 0; gi < allNames.length; gi++) {
-        const rStart = 1 + gi * 4;
+        const rStart = 1 + gi * 6;
 
-        // NO / 그룹명 4행 병합
-        merges.push({ s: { r: rStart, c: 0 }, e: { r: rStart + 3, c: 0 } });
-        merges.push({ s: { r: rStart, c: 1 }, e: { r: rStart + 3, c: 1 } });
+        // NO / 그룹명 6행 병합
+        merges.push({ s: { r: rStart, c: 0 }, e: { r: rStart + 5, c: 0 } });
+        merges.push({ s: { r: rStart, c: 1 }, e: { r: rStart + 5, c: 1 } });
 
         // 부제목 행에서 로직별 2칸 병합
         for (let i = 0; i < logicCount; i++) {
