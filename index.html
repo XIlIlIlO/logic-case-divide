@@ -5,17 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>거래로직 분석 도구</title>
 
-  <!--
-    XLSX (SheetJS Community)
-    - GitHub Pages에서 외부 스크립트 로드 실패할 수도 있어서 fallback 추가
-    - 참고: https://docs.sheetjs.com/
-  -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script>
     (function () {
       function loadFallback() {
+        // CDN 실패 시 fallback (스타일 지원 버전)
         var s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+        s.src = "https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js";
         s.onload = function () { console.log("[XLSX] fallback loaded"); };
         s.onerror = function () { console.warn("[XLSX] fallback load failed"); };
         document.head.appendChild(s);
@@ -363,7 +359,7 @@
     <header>
       <h1>📊 거래로직 분석 도구</h1>
       <div class="hint">
-        ✅ 로직별 엑셀 업로드 → 자동 병합 → 미리보기 강조 → 결과 엑셀 다운로드
+        ✅ 로직별 엑셀 업로드 → 자동 병합 → 미리보기 강조 → 결과 엑셀 다운로드 (강조 색상 포함)
       </div>
     </header>
 
@@ -831,12 +827,7 @@
     }
 
     // ---------------------------
-    // 결과 엑셀 다운로드
-    // - 동일 형식:
-    //   1) 헤더 1행 (NO/그룹명/로직n(2칸 병합))
-    //   2) 그룹당 6행 (부제목 1행 + 5지표)
-    //   3) NO/그룹명은 6행 rowspan 병합
-    //   4) 부제목은 로직당 2칸 병합
+    // 결과 엑셀 다운로드 (강조 적용)
     // ---------------------------
     function downloadResultExcel() {
       rebuildMerged();
@@ -851,14 +842,13 @@
         return;
       }
 
-      // ✅ [ADD] 현재 화면(필터) 상태를 그대로 엑셀에도 적용
+      // 현재 필터링 상태 가져오기
       const filterStopLoss = document.getElementById("filterStopLoss").checked;
       const filterPositiveProfit = document.getElementById("filterPositiveProfit").checked;
       const filterPositiveRealizedProfit = document.getElementById("filterPositiveRealizedProfit").checked;
       const stopLossThreshold = parseInt(document.getElementById("stopLossThreshold").value, 10) || 0;
 
       const logicCount = logicGroups.length;
-
       const aoa = [];
 
       // Row 1: 헤더 1행
@@ -894,61 +884,17 @@
         });
       });
 
+      // 1. 시트 생성 (데이터 및 구조만)
       const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-      // ✅ [ADD] 화면에서 강조된 것처럼(hl) 엑셀에서도 배경색 적용
-      const HL_STYLE = {
-        fill: { patternType: "solid", fgColor: { rgb: "E8F5E9" } }
-      };
-
-      function setCellStyle(ws, r, c, style) {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        if (!ws[addr]) ws[addr] = { t: "s", v: "" }; // 빈 셀도 스타일 먹게 생성
-        ws[addr].s = Object.assign({}, ws[addr].s || {}, style);
-      }
-
-      // 헤더 row=0, 바디 시작 row=1
-      // 그룹당 6행: (부제목 1행) + (지표 5행)
-      // 지표 행에서 로직별 2칸: [지표라벨][값]
-      for (let gi = 0; gi < allNames.length; gi++) {
-        const groupName = allNames[gi];
-        const rStart = 1 + gi * 6; // 부제목 행
-
-        // 지표 5행만 스타일 적용 (부제목 행 제외)
-        for (let mi = 0; mi < 5; mi++) {
-          const r = rStart + 1 + mi; // 지표 행
-
-          for (let li = 0; li < logicCount; li++) {
-            const g = logicGroups[li];
-
-            const isHL = shouldHighlightCell(
-              groupName,
-              g,
-              filterStopLoss,
-              filterPositiveProfit,
-              filterPositiveRealizedProfit,
-              stopLossThreshold
-            );
-
-            if (!isHL) continue;
-
-            const cMetric = 2 + li * 2;     // 지표 라벨 칸
-            const cValue = cMetric + 1;     // 값 칸
-
-            setCellStyle(ws, r, cMetric, HL_STYLE);
-            setCellStyle(ws, r, cValue, HL_STYLE);
-          }
-        }
-      }
-
-      // 열 너비
+      // 2. 열 너비 설정
       ws["!cols"] = [
         { wch: 6 },
         { wch: 18 },
         ...Array.from({ length: logicCount }, () => ([{ wch: 12 }, { wch: 12 }])).flat()
       ];
 
-      // 병합(merge)
+      // 3. 셀 병합 설정
       const merges = [];
 
       // 헤더: 로직 n (2칸 병합) - row 0
@@ -957,19 +903,54 @@
         merges.push({ s: { r: 0, c: c0 }, e: { r: 0, c: c0 + 1 } });
       }
 
-      // 바디 시작 row index = 1
-      // 그룹당 6행: sub(0) + 5 metrics
+      // 4. 셀 스타일 적용 (배경색) 및 나머지 병합
+      // 데이터 시작 row index = 1
       for (let gi = 0; gi < allNames.length; gi++) {
+        const name = allNames[gi];
         const rStart = 1 + gi * 6;
 
         // NO / 그룹명 6행 병합
         merges.push({ s: { r: rStart, c: 0 }, e: { r: rStart + 5, c: 0 } });
         merges.push({ s: { r: rStart, c: 1 }, e: { r: rStart + 5, c: 1 } });
 
-        // 부제목 행에서 로직별 2칸 병합
+        // 로직별 처리
         for (let i = 0; i < logicCount; i++) {
-          const c0 = 2 + i * 2;
+          const g = logicGroups[i];
+          const c0 = 2 + i * 2; // Label 열
+          const c1 = c0 + 1;    // Value 열
+
+          // 부제목 행 2칸 병합
           merges.push({ s: { r: rStart, c: c0 }, e: { r: rStart, c: c0 + 1 } });
+
+          // 강조 여부 확인
+          const isHL = shouldHighlightCell(
+            name,
+            g,
+            filterStopLoss,
+            filterPositiveProfit,
+            filterPositiveRealizedProfit,
+            stopLossThreshold
+          );
+
+          if (isHL) {
+            // 부제목(첫행) 제외하고, 아래 5개 지표 행(rowOffset 1~5)에 스타일 적용
+            for (let ro = 1; ro <= 5; ro++) {
+              const r = rStart + ro;
+              const style = { fill: { fgColor: { rgb: "E8F5E9" } } }; // 연두색 (#E8F5E9)
+
+              // Label 셀 스타일
+              const addrLabel = XLSX.utils.encode_cell({ r: r, c: c0 });
+              if (!ws[addrLabel]) ws[addrLabel] = { v: "", t: "s" };
+              if (!ws[addrLabel].s) ws[addrLabel].s = {};
+              ws[addrLabel].s.fill = style.fill;
+
+              // Value 셀 스타일
+              const addrVal = XLSX.utils.encode_cell({ r: r, c: c1 });
+              if (!ws[addrVal]) ws[addrVal] = { v: "", t: "n" }; // 숫자형 가정
+              if (!ws[addrVal].s) ws[addrVal].s = {};
+              ws[addrVal].s.fill = style.fill;
+            }
+          }
         }
       }
 
@@ -980,9 +961,7 @@
 
       const ts = new Date();
       const stamp = `${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,"0")}${String(ts.getDate()).padStart(2,"0")}_${String(ts.getHours()).padStart(2,"0")}${String(ts.getMinutes()).padStart(2,"0")}`;
-
-      // ✅ [CHANGE] 셀 스타일 저장 옵션 추가
-      XLSX.writeFile(wb, `로직_통합결과_${stamp}.xlsx`, { bookType: "xlsx", cellStyles: true });
+      XLSX.writeFile(wb, `로직_통합결과_${stamp}.xlsx`);
     }
 
     // ---------------------------
