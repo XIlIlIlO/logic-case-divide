@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>거래로직 분석 도구</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            gap: 0;
+        }
+        
+        header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #1e8449 0%, #16a085 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .left-panel {
+            grid-column: 1;
+            grid-row: 2;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .main-content {
+            grid-column: 2;
+            grid-row: 2;
+            background: white;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        footer {
+            grid-column: 1 / -1;
+            background: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .logic-group {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .logic-group-header {
+            background: #e8f4f8;
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #d0d0d0;
+        }
+        
+        .logic-group-header:hover {
+            background: #d4ebf0;
+        }
+        
+        .logic-group-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e8449;
+        }
+        
+        .logic-group-subtitle {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .logic-group-content {
+            padding: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .logic-group-content.hidden {
+            display: none;
+        }
+        
+        .file-item {
+            background: white;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        .file-name {
+            flex: 1;
+            word-break: break-all;
+            color: #555;
+        }
+        
+        .btn-small {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        
+        .btn-small:hover {
+            background: #ff5252;
+        }
+        
+        .btn-add-file {
+            display: none;
+        }
+        
+        .logic-group-content input[type="file"] {
+            font-size: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        
+        .controls-section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .control-group input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+        
+        .control-group input[type="number"] {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 100px;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            border: 1px solid #ddd;
+        }
+        
+        th {
+            background: #1e8449;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #155a3a;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 8px 10px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .highlight {
+            background: #E8F5E9 !important;
+        }
+        
+        .btn-primary {
+            background: #1e8449;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: #16a085;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .btn-secondary {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-secondary:hover {
+            background: #555;
+        }
+        
+        .left-panel-header {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e8449;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #1e8449;
+        }
+        
+        .add-logic-group-btn {
+            width: 100%;
+            background: #1e8449;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .add-logic-group-btn:hover {
+            background: #16a085;
+        }
+        
+        .delete-logic-group {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        
+        .delete-logic-group:hover {
+            background: #ff5252;
+        }
+        
+        .logic-group-header-controls {
+            display: flex;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 거래로직 분석 도구</h1>
+        </header>
+        
+        <div class="left-panel">
+            <div class="left-panel-header">로직 집단</div>
+            <button class="add-logic-group-btn" onclick="addLogicGroup()">+ 로직 집단 추가</button>
+            <div id="logicGroupsContainer"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="controls-section">
+                <h3 style="margin-bottom: 12px; color: #1e8449;">필터링 조건</h3>
+                
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="filterStopLoss" onchange="applyFilters()">
+                        손절횟수 n 이하
+                    </label>
+                    <input type="number" id="stopLossThreshold" placeholder="n 입력" value="0" min="0" onchange="applyFilters()" disabled>
+                </div>
+                
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="filterPositiveProfit" onchange="applyFilters()">
+                        순이익이 양수
+                    </label>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn-secondary" onclick="clearAllFilters()">필터 초기화</button>
+                </div>
+            </div>
+            
+            <div class="table-wrapper">
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th>그룹명</th>
+                            <th>익절금액</th>
+                            <th>손절금액</th>
+                            <th>수수료</th>
+                            <th>확정손익금</th>
+                            <th>미실현손익</th>
+                            <th>순이익</th>
+                            <th>익절횟수</th>
+                            <th>손절횟수</th>
+                            <th>승률</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <tr><td colspan="10" style="text-align: center; color: #999;">아직 데이터가 없습니다. 엑셀 파일을 업로드해주세요.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <footer>
+            <button class="btn-primary" onclick="downloadExcel()">📥 엑셀 파일 다운로드</button>
+            <button class="btn-primary" onclick="clearAllData()" style="background: #ff6b6b;">🗑️ 모든 데이터 초기화</button>
+        </footer>
+    </div>
+
+    <script>
+        let logicGroups = [];
+        let allData = [];
+        
+        // 로컬스토리지에서 데이터 복원
+        function loadFromStorage() {
+            const saved = localStorage.getItem('logicGroups');
+            if (saved) {
+                logicGroups = JSON.parse(saved);
+                renderLogicGroups();
+            } else {
+                addLogicGroup();
+            }
+        }
+        
+        function saveToStorage() {
+            localStorage.setItem('logicGroups', JSON.stringify(logicGroups));
+        }
+        
+        function addLogicGroup() {
+            const groupId = Date.now();
+            logicGroups.push({
+                id: groupId,
+                name: `로직${logicGroups.length + 1}`,
+                subtitle: '313 - 15%',
+                files: [],
+                isCollapsed: false
+            });
+            saveToStorage();
+            renderLogicGroups();
+        }
+        
+        function deleteLogicGroup(groupId) {
+            if (confirm('이 로직 집단을 삭제하시겠습니까?')) {
+                logicGroups = logicGroups.filter(g => g.id !== groupId);
+                saveToStorage();
+                renderLogicGroups();
+                applyFilters();
+            }
+        }
+        
+        function renderLogicGroups() {
+            const container = document.getElementById('logicGroupsContainer');
+            container.innerHTML = '';
+            
+            logicGroups.forEach((group, index) => {
+                const groupHtml = `
+                    <div class="logic-group" data-group-id="${group.id}">
+                        <div class="logic-group-header" onclick="toggleLogicGroup(${group.id})">
+                            <div>
+                                <div class="logic-group-title">
+                                    <span class="toggle-icon ${group.isCollapsed ? 'collapsed' : ''}">▼</span>
+                                    ${group.name}
+                                </div>
+                                <div class="logic-group-subtitle">${group.subtitle}</div>
+                            </div>
+                            <div class="logic-group-header-controls">
+                                <button class="delete-logic-group" onclick="event.stopPropagation(); deleteLogicGroup(${group.id})">삭제</button>
+                            </div>
+                        </div>
+                        <div class="logic-group-content ${group.isCollapsed ? 'hidden' : ''}">
+                            <div style="margin-bottom: 8px;">
+                                <label style="font-size: 11px; color: #666;">로직 이름:</label>
+                                <input type="text" value="${group.name}" onchange="updateGroupName(${group.id}, this.value)" 
+                                       style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div style="margin-bottom: 8px;">
+                                <label style="font-size: 11px; color: #666;">부제목 (예: 313 - 15%):</label>
+                                <input type="text" value="${group.subtitle}" onchange="updateGroupSubtitle(${group.id}, this.value)" 
+                                       style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div style="margin-bottom: 8px;">
+                                <input type="file" accept=".xlsx,.xls,.csv" multiple onchange="addFilesToGroup(${group.id}, event)">
+                            </div>
+                            <div id="files-${group.id}">
+                                ${group.files.map((file, idx) => `
+                                    <div class="file-item">
+                                        <span class="file-name">${file.name}</span>
+                                        <button class="btn-small" onclick="removeFileFromGroup(${group.id}, ${idx})">제거</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += groupHtml;
+            });
+        }
+        
+        function toggleLogicGroup(groupId) {
+            const group = logicGroups.find(g => g.id === groupId);
+            if (group) {
+                group.isCollapsed = !group.isCollapsed;
+                saveToStorage();
+                renderLogicGroups();
+            }
+        }
+        
+        function updateGroupName(groupId, newName) {
+            const group = logicGroups.find(g => g.id === groupId);
+            if (group) {
+                group.name = newName || `로직${logicGroups.indexOf(group) + 1}`;
+                saveToStorage();
+                renderLogicGroups();
+                applyFilters();
+            }
+        }
+        
+        function updateGroupSubtitle(groupId, newSubtitle) {
+            const group = logicGroups.find(g => g.id === groupId);
+            if (group) {
+                group.subtitle = newSubtitle;
+                saveToStorage();
+                renderLogicGroups();
+            }
+        }
+        
+        function addFilesToGroup(groupId, event) {
+            const group = logicGroups.find(g => g.id === groupId);
+            if (!group) return;
+            
+            const files = Array.from(event.target.files);
+            const promises = files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const workbook = XLSX.read(e.target.result, { type: 'array' });
+                            const data = XLSX.utils.sheet_to_json(workbook.Sheets['Total_Result']);
+                            group.files.push({
+                                name: file.name,
+                                data: data
+                            });
+                            resolve();
+                        } catch (err) {
+                            alert(`파일 ${file.name} 읽기 실패: ${err.message}`);
+                            resolve();
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+            });
+            
+            Promise.all(promises).then(() => {
+                saveToStorage();
+                renderLogicGroups();
+                applyFilters();
+            });
+            
+            event.target.value = '';
+        }
+        
+        function removeFileFromGroup(groupId, fileIndex) {
+            const group = logicGroups.find(g => g.id === groupId);
+            if (group) {
+                group.files.splice(fileIndex, 1);
+                saveToStorage();
+                renderLogicGroups();
+                applyFilters();
+            }
+        }
+        
+        function mergeGroupData() {
+            allData = [];
+            
+            logicGroups.forEach(group => {
+                const groupData = {};
+                
+                group.files.forEach(file => {
+                    file.data.forEach(row => {
+                        const groupName = row['Group Name'];
+                        if (groupName) {
+                            if (!groupData[groupName]) {
+                                groupData[groupName] = { ...row };
+                            } else {
+                                // 중복되면 숫자들을 더함
+                                const keys = ['익절금액', '손절금액', '수수료', '확정손익금', '미실현손익', '순이익', '익절횟수', '손절횟수'];
+                                keys.forEach(key => {
+                                    groupData[groupName][key] = (parseFloat(groupData[groupName][key]) || 0) + (parseFloat(row[key]) || 0);
+                                });
+                            }
+                        }
+                    });
+                });
+                
+                Object.entries(groupData).forEach(([name, data]) => {
+                    allData.push({
+                        ...data,
+                        logicGroup: group.name,
+                        logicId: group.id
+                    });
+                });
+            });
+        }
+        
+        function applyFilters() {
+            mergeGroupData();
+            const filterStopLoss = document.getElementById('filterStopLoss').checked;
+            const filterPositiveProfit = document.getElementById('filterPositiveProfit').checked;
+            const stopLossThreshold = parseInt(document.getElementById('stopLossThreshold').value) || 0;
+            
+            document.getElementById('stopLossThreshold').disabled = !filterStopLoss;
+            
+            const tbody = document.getElementById('resultTableBody');
+            if (allData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #999;">데이터가 없습니다.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = allData.map((row, idx) => {
+                const stopLossCount = parseFloat(row['손절횟수']) || 0;
+                const netProfit = parseFloat(row['순이익']) || 0;
+                
+                let highlightStopLoss = filterStopLoss && stopLossCount <= stopLossThreshold;
+                let highlightProfit = filterPositiveProfit && netProfit > 0;
+                let shouldHighlight = (filterStopLoss && highlightStopLoss) || (filterPositiveProfit && highlightProfit);
+                
+                return `
+                    <tr>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${row['Group Name'] || ''}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['익절금액']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['손절금액']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['수수료']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['확정손익금']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['미실현손익']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['순이익']) || 0).toFixed(2)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${Math.round(parseFloat(row['익절횟수']) || 0)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${Math.round(parseFloat(row['손절횟수']) || 0)}</td>
+                        <td class="${shouldHighlight ? 'highlight' : ''}">${row['승률'] || ''}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function clearAllFilters() {
+            document.getElementById('filterStopLoss').checked = false;
+            document.getElementById('filterPositiveProfit').checked = false;
+            document.getElementById('stopLossThreshold').value = '0';
+            applyFilters();
+        }
+        
+        function downloadExcel() {
+            if (allData.length === 0) {
+                alert('다운로드할 데이터가 없습니다.');
+                return;
+            }
+            
+            const headers = ['그룹명', '익절금액', '손절금액', '수수료', '확정손익금', '미실현손익', '순이익', '익절횟수', '손절횟수', '승률'];
+            const rows = allData.map(row => [
+                row['Group Name'] || '',
+                (parseFloat(row['익절금액']) || 0).toFixed(2),
+                (parseFloat(row['손절금액']) || 0).toFixed(2),
+                (parseFloat(row['수수료']) || 0).toFixed(2),
+                (parseFloat(row['확정손익금']) || 0).toFixed(2),
+                (parseFloat(row['미실현손익']) || 0).toFixed(2),
+                (parseFloat(row['순이익']) || 0).toFixed(2),
+                Math.round(parseFloat(row['익절횟수']) || 0),
+                Math.round(parseFloat(row['손절횟수']) || 0),
+                row['승률'] || ''
+            ]);
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            
+            ws['!cols'] = [
+                { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+                { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
+                { wch: 10 }, { wch: 10 }
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, '분석결과');
+            XLSX.writeFile(wb, `거래분석_${new Date().getTime()}.xlsx`);
+        }
+        
+        function clearAllData() {
+            if (confirm('모든 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                logicGroups = [];
+                allData = [];
+                localStorage.clear();
+                location.reload();
+            }
+        }
+        
+        // 초기 로드
+        window.addEventListener('load', loadFromStorage);
+    </script>
+</body>
+</html>
