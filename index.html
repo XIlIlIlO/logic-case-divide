@@ -301,6 +301,15 @@
       white-space: nowrap;
     }
 
+    /* (추가) 로직 간격용 spacer 헤더 셀 */
+    thead th.spacer-th {
+      background: #ffffff !important;
+      color: transparent !important;
+      border: none !important;
+      min-width: 14px;
+      padding: 0 !important;
+    }
+
     tbody td {
       padding: 8px 10px;
       border: 1px solid #e6e6e6;
@@ -327,6 +336,14 @@
       color: #222;
       text-align: center;
       background: #ffffff;
+    }
+
+    /* (추가) 로직 간격용 spacer 바디 셀 */
+    tbody td.spacer-td {
+      border: none !important;
+      background: transparent !important;
+      padding: 0 !important;
+      min-width: 14px;
     }
 
     .hl {
@@ -474,6 +491,14 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    // (추가) 로직 블록 시작 열 계산 (HTML/엑셀에서 동일 개념)
+    // - NO, 그룹명 = 2칸 고정
+    // - 로직 블록은 (라벨, 값) 2칸 + 로직 사이 빈칸 1칸(마지막 제외)
+    // => 로직 i 시작 열 = 2 + i*3
+    function logicStartCol(i) {
+      return 2 + i * 3;
     }
 
     // ---------------------------
@@ -709,9 +734,6 @@
 
     // ---------------------------
     // 강조 규칙
-    // - 부제목 행은 강조 제외
-    // - 5개 지표 줄을 "한 번에" 같이 강조
-    // - 여러 필터 동시 체크 시 교집합(AND)만 강조
     // ---------------------------
     function shouldHighlightCell(groupName, g, filterStopLoss, filterPositiveProfit, filterPositiveRealizedProfit, stopLossThreshold) {
       const has = !!(g.merged && g.merged[groupName]);
@@ -730,8 +752,7 @@
 
     // ---------------------------
     // 렌더: 결과 테이블(미리보기)
-    // - 그룹당 6행(부제목 1행 + 지표 5행)
-    // - 부제목은 그룹마다 반복 표시(로직당 2칸 colspan 병합)
+    // - (수정) 로직 사이에 spacer 1칸 추가
     // ---------------------------
     function renderResultTable() {
       const thead = document.getElementById("resultThead");
@@ -751,32 +772,38 @@
       }
 
       const allNames = getAllGroupNames();
+      const logicCount = logicGroups.length;
 
-      // 헤더 1줄(첨부 이미지 형식)
+      // 총 컬럼 수(미리보기) = 2 + 로직(2칸*count) + 스페이서(count-1)
+      const totalCols = 2 + logicCount * 2 + Math.max(0, logicCount - 1);
+
+      // 헤더 1줄
       let h1 = `<tr>
         <th style="min-width:60px;">NO</th>
         <th style="min-width:180px;">그룹명</th>
       `;
       logicGroups.forEach((g, idx) => {
         h1 += `<th colspan="2" style="min-width:160px;">로직${idx + 1}</th>`;
+        if (idx !== logicCount - 1) h1 += `<th class="spacer-th"></th>`;
       });
       h1 += `</tr>`;
       thead.innerHTML = h1;
 
       if (allNames.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${2 + logicGroups.length * 2}" style="padding:18px; color:#999; text-align:center;">업로드된 데이터가 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${totalCols}" style="padding:18px; color:#999; text-align:center;">업로드된 데이터가 없습니다.</td></tr>`;
         return;
       }
 
       let html = "";
 
       allNames.forEach((name, i) => {
-        // (1) 부제목 행 (그룹마다 반복, 로직당 colspan=2 병합)
+        // (1) 부제목 행
         html += `<tr>`;
         html += `<td rowspan="6">${i + 1}</td>`;
         html += `<td rowspan="6" class="group-name">${escapeHtml(name)}</td>`;
-        logicGroups.forEach((g) => {
+        logicGroups.forEach((g, idx) => {
           html += `<td colspan="2" class="subtitle-cell">${escapeHtml(g.subtitle || "")}</td>`;
+          if (idx !== logicCount - 1) html += `<td class="spacer-td"></td>`;
         });
         html += `</tr>`;
 
@@ -791,7 +818,7 @@
 
         metricRows.forEach(m => {
           html += `<tr>`;
-          logicGroups.forEach((g) => {
+          logicGroups.forEach((g, idx) => {
             const exists = (g.merged && g.merged[name]);
             const v = exists ? g.merged[name] : { tp: "", sl: "", rp: "", up: "", np: "" };
 
@@ -806,6 +833,7 @@
 
             html += `<td class="metric ${isHL ? "hl" : ""}">${m.label}</td>`;
             html += `<td class="${isHL ? "hl" : ""}">${m.fmt(v[m.key])}</td>`;
+            if (idx !== logicCount - 1) html += `<td class="spacer-td"></td>`;
           });
           html += `</tr>`;
         });
@@ -832,12 +860,7 @@
 
     // ---------------------------
     // 결과 엑셀 다운로드
-    // - 동일 형식:
-    //   1) 헤더 1행 (NO/그룹명/로직n(2칸 병합))
-    //   2) 그룹당 6행 (부제목 1행 + 5지표)
-    //   3) NO/그룹명은 6행 rowspan 병합
-    //   4) 부제목은 로직당 2칸 병합
-    // + (추가) 화면과 동일한 필터(강조) 결과를 셀 배경색으로 저장
+    // - (수정) 로직 사이에 빈 1열(spacer) 추가
     // ---------------------------
     function downloadResultExcel() {
       rebuildMerged();
@@ -852,26 +875,31 @@
         return;
       }
 
-      // (추가) 현재 화면의 필터 상태를 그대로 반영
+      // 현재 화면의 필터 상태를 그대로 반영
       const filterStopLoss = document.getElementById("filterStopLoss").checked;
       const filterPositiveProfit = document.getElementById("filterPositiveProfit").checked;
       const filterPositiveRealizedProfit = document.getElementById("filterPositiveRealizedProfit").checked;
       const stopLossThreshold = parseInt(document.getElementById("stopLossThreshold").value, 10) || 0;
 
       const logicCount = logicGroups.length;
-
       const aoa = [];
 
-      // Row 1: 헤더 1행
+      // Row 1: 헤더 1행 (+ 로직 간 spacer 1칸)
       const header = ["NO", "그룹명"];
-      for (let i = 0; i < logicCount; i++) header.push(`로직${i + 1}`, "");
+      for (let i = 0; i < logicCount; i++) {
+        header.push(`로직${i + 1}`, "");
+        if (i !== logicCount - 1) header.push(""); // spacer
+      }
       aoa.push(header);
 
-      // Body: 그룹당 6행 (부제목 + 5지표)
+      // Body: 그룹당 6행
       allNames.forEach((name, idx) => {
         // (1) 부제목 행
         const sub = [idx + 1, name];
-        for (let i = 0; i < logicCount; i++) sub.push(logicGroups[i].subtitle || "", "");
+        for (let i = 0; i < logicCount; i++) {
+          sub.push(logicGroups[i].subtitle || "", "");
+          if (i !== logicCount - 1) sub.push(""); // spacer
+        }
         aoa.push(sub);
 
         // (2) 5지표 행
@@ -890,6 +918,7 @@
             const exists = (g.merged && g.merged[name]);
             const v = exists ? g.merged[name] : { tp: "", sl: "", rp: "", up: "", np: "" };
             line.push(r.label, r.val(v[r.key]));
+            if (i !== logicCount - 1) line.push(""); // spacer
           }
           aoa.push(line);
         });
@@ -897,24 +926,27 @@
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-      // 열 너비
-      ws["!cols"] = [
+      // 열 너비 (+ spacer 열)
+      const cols = [
         { wch: 6 },
-        { wch: 18 },
-        ...Array.from({ length: logicCount }, () => ([{ wch: 12 }, { wch: 12 }])).flat()
+        { wch: 18 }
       ];
+      for (let i = 0; i < logicCount; i++) {
+        cols.push({ wch: 12 }, { wch: 12 });
+        if (i !== logicCount - 1) cols.push({ wch: 3 }); // spacer
+      }
+      ws["!cols"] = cols;
 
       // 병합(merge)
       const merges = [];
 
       // 헤더: 로직 n (2칸 병합) - row 0
       for (let i = 0; i < logicCount; i++) {
-        const c0 = 2 + i * 2;
+        const c0 = logicStartCol(i);
         merges.push({ s: { r: 0, c: c0 }, e: { r: 0, c: c0 + 1 } });
       }
 
-      // 바디 시작 row index = 1
-      // 그룹당 6행: sub(0) + 5 metrics
+      // 바디 시작 row index = 1, 그룹당 6행
       for (let gi = 0; gi < allNames.length; gi++) {
         const rStart = 1 + gi * 6;
 
@@ -924,26 +956,21 @@
 
         // 부제목 행에서 로직별 2칸 병합
         for (let i = 0; i < logicCount; i++) {
-          const c0 = 2 + i * 2;
+          const c0 = logicStartCol(i);
           merges.push({ s: { r: rStart, c: c0 }, e: { r: rStart, c: c0 + 1 } });
         }
       }
 
       ws["!merges"] = merges;
 
-      // ---------------------------
-      // (추가) 화면 강조(hl)를 엑셀 셀 스타일로 반영
-      // - 부제목 행 제외
-      // - 5개 지표 줄(라벨/값) 셀 배경색 채움
-      // ---------------------------
+      // 화면 강조(hl)를 엑셀 셀 스타일로 반영
       const HL_STYLE = {
         fill: {
           patternType: "solid",
-          fgColor: { rgb: "FFE8F5E9" } // 화면 .hl 색과 동일 계열
+          fgColor: { rgb: "FFE8F5E9" }
         }
       };
 
-      // 그룹별 6행 구조: rStart(부제목) + (rStart+1~rStart+5 지표 5줄)
       for (let gi = 0; gi < allNames.length; gi++) {
         const groupName = allNames[gi];
         const rStart = 1 + gi * 6;
@@ -962,10 +989,9 @@
 
           if (!isHL) continue;
 
-          const cLabel = 2 + li * 2;
+          const cLabel = logicStartCol(li);
           const cVal = cLabel + 1;
 
-          // 지표 5줄 모두 스타일 적용
           for (let mi = 0; mi < 5; mi++) {
             const r = rStart + 1 + mi;
 
@@ -987,7 +1013,6 @@
       const ts = new Date();
       const stamp = `${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,"0")}${String(ts.getDate()).padStart(2,"0")}_${String(ts.getHours()).padStart(2,"0")}${String(ts.getMinutes()).padStart(2,"0")}`;
 
-      // (추가) cellStyles 옵션 포함 (스타일 저장 보강)
       XLSX.writeFile(wb, `로직_통합결과_${stamp}.xlsx`, { cellStyles: true });
     }
 
