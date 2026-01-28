@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>거래로직 분석 도구</title>
 
-  <!-- XLSX -->
+  <!--
+    XLSX (SheetJS Community)
+    - GitHub Pages에서 외부 스크립트 로드 실패할 수도 있어서 fallback 추가
+    - 참고: https://docs.sheetjs.com/
+  -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- CDN 로드 실패 대비 fallback (최소 기능) -->
   <script>
     (function () {
       function loadFallback() {
@@ -31,55 +33,89 @@
       background: #f5f5f5;
       color: #333;
     }
+
     .container {
       display: grid;
-      grid-template-columns: 300px 1fr;
+      grid-template-columns: 320px 1fr;
       grid-template-rows: auto 1fr auto;
       height: 100vh;
       gap: 0;
     }
+
     header {
       grid-column: 1 / -1;
       background: linear-gradient(135deg, #1e8449 0%, #16a085 100%);
       color: white;
-      padding: 20px;
+      padding: 18px 20px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
-    header h1 { font-size: 24px; font-weight: 600; }
+    header h1 { font-size: 20px; font-weight: 700; }
+
     .left-panel {
       grid-column: 1;
       grid-row: 2;
       background: white;
       border-right: 1px solid #e0e0e0;
       overflow-y: auto;
-      padding: 15px;
+      padding: 14px;
     }
+
     .main-content {
       grid-column: 2;
       grid-row: 2;
       background: white;
       overflow-y: auto;
-      padding: 20px;
+      padding: 18px;
     }
+
     footer {
       grid-column: 1 / -1;
       background: #f9f9f9;
       border-top: 1px solid #e0e0e0;
-      padding: 15px 20px;
+      padding: 12px 16px;
       display: flex;
       gap: 10px;
       justify-content: center;
     }
+
+    .left-panel-header {
+      font-weight: 800;
+      font-size: 14px;
+      color: #1e8449;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1e8449;
+    }
+
+    .add-logic-group-btn {
+      width: 100%;
+      background: #1e8449;
+      color: white;
+      border: none;
+      padding: 10px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-bottom: 12px;
+      font-weight: 800;
+    }
+    .add-logic-group-btn:hover { background: #16a085; }
+
     .logic-group {
       background: #f9f9f9;
       border: 1px solid #ddd;
-      border-radius: 6px;
+      border-radius: 8px;
       margin-bottom: 12px;
       overflow: hidden;
     }
+
     .logic-group-header {
       background: #e8f4f8;
-      padding: 12px;
+      padding: 10px 12px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -87,139 +123,243 @@
       border-bottom: 1px solid #d0d0d0;
     }
     .logic-group-header:hover { background: #d4ebf0; }
-    .logic-group-title { font-weight: 600; font-size: 14px; color: #1e8449; }
-    .logic-group-subtitle { font-size: 12px; color: #666; margin-top: 2px; }
-    .toggle-icon { display: inline-block; transition: transform 0.3s; }
+
+    .logic-group-title {
+      font-weight: 800;
+      font-size: 13px;
+      color: #1e8449;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toggle-icon { display: inline-block; transition: transform 0.2s; }
     .toggle-icon.collapsed { transform: rotate(-90deg); }
-    .logic-group-content { padding: 12px; max-height: 500px; overflow-y: auto; }
+
+    .logic-group-subtitle {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    .logic-group-header-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .delete-logic-group {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .delete-logic-group:hover { background: #ff5252; }
+
+    .logic-group-content { padding: 12px; }
     .logic-group-content.hidden { display: none; }
+
+    .field {
+      margin-bottom: 10px;
+    }
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .field input[type="text"] {
+      width: 100%;
+      padding: 8px 8px;
+      font-size: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      outline: none;
+    }
+    .field input[type="text"]:focus {
+      border-color: #16a085;
+      box-shadow: 0 0 0 3px rgba(22,160,133,0.12);
+    }
+
+    .field input[type="file"] {
+      width: 100%;
+      font-size: 12px;
+      cursor: pointer;
+    }
 
     .file-item {
       background: white;
       padding: 8px 10px;
       margin-bottom: 6px;
       border: 1px solid #e0e0e0;
-      border-radius: 4px;
+      border-radius: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 12px;
+      gap: 8px;
     }
-    .file-name { flex: 1; word-break: break-all; color: #555; }
+    .file-name { flex: 1; word-break: break-all; color: #444; font-weight: 600; }
+
     .btn-small {
       background: #ff6b6b;
       color: white;
       border: none;
-      padding: 4px 8px;
-      border-radius: 3px;
+      padding: 6px 8px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 11px;
+      font-weight: 700;
       white-space: nowrap;
     }
     .btn-small:hover { background: #ff5252; }
 
-    .logic-group-content input[type="file"] {
-      font-size: 12px;
-      margin-bottom: 8px;
-      cursor: pointer;
-    }
-
     .controls-section {
       background: #f9f9f9;
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #eee;
+      margin-bottom: 14px;
     }
-    .control-group { margin-bottom: 15px; }
-    .control-group label {
+    .controls-section h3 {
+      margin-bottom: 10px;
+      color: #1e8449;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .control-row {
       display: flex;
       align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .control-group label {
+      display: inline-flex;
+      align-items: center;
       gap: 8px;
-      margin-bottom: 8px;
       cursor: pointer;
       font-size: 13px;
+      font-weight: 700;
     }
-    .control-group input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
+    .control-group input[type="checkbox"] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
     .control-group input[type="number"] {
-      padding: 6px 8px;
+      padding: 7px 9px;
       border: 1px solid #ddd;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 12px;
-      width: 100px;
+      width: 110px;
+      outline: none;
     }
-    .table-wrapper { overflow-x: auto; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd; }
-    th {
+    .control-group input[type="number"]:disabled { opacity: 0.55; }
+
+    .btn-secondary {
+      background: #666;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .btn-secondary:hover { background: #555; }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #eee;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 900px;
+    }
+
+    thead th {
       background: #1e8449;
       color: white;
       padding: 10px;
-      text-align: left;
-      font-weight: 600;
+      text-align: center;
+      font-weight: 900;
       border: 1px solid #155a3a;
       position: sticky;
       top: 0;
+      z-index: 2;
+      white-space: nowrap;
     }
-    td { padding: 8px 10px; border: 1px solid #e0e0e0; }
-    tr:hover { background: #f5f5f5; }
-    .highlight { background: #E8F5E9 !important; }
+
+    thead tr.subhead th {
+      background: #e8f4f8;
+      color: #1e8449;
+      border: 1px solid #cfe5ea;
+      top: 38px; /* 첫 헤더 높이 아래 */
+      z-index: 1;
+      font-weight: 900;
+    }
+
+    tbody td {
+      padding: 8px 10px;
+      border: 1px solid #e6e6e6;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    tbody td.group-name {
+      text-align: left;
+      font-weight: 900;
+      color: #1e8449;
+    }
+
+    tbody td.metric {
+      color: #666;
+      font-weight: 800;
+      text-align: left;
+      background: #fcfcfc;
+    }
+
+    .hl {
+      background: #E8F5E9 !important; /* 매우 연한 연두 */
+    }
 
     .btn-primary {
       background: #1e8449;
       color: white;
       border: none;
-      padding: 10px 20px;
-      border-radius: 4px;
+      padding: 10px 18px;
+      border-radius: 10px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: background 0.3s;
+      font-size: 13px;
+      font-weight: 900;
+      transition: background 0.2s;
     }
     .btn-primary:hover { background: #16a085; }
 
-    .btn-group { display: flex; gap: 8px; margin-bottom: 12px; }
-    .btn-secondary {
-      background: #666;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
+    .btn-danger {
+      background: #ff6b6b !important;
     }
-    .btn-secondary:hover { background: #555; }
+    .btn-danger:hover { background: #ff5252 !important; }
 
-    .left-panel-header {
-      font-weight: 600;
-      font-size: 14px;
-      color: #1e8449;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #1e8449;
-    }
-    .add-logic-group-btn {
-      width: 100%;
-      background: #1e8449;
-      color: white;
-      border: none;
-      padding: 8px;
-      border-radius: 4px;
-      cursor: pointer;
+    .hint {
       font-size: 12px;
-      margin-bottom: 15px;
-      font-weight: 600;
+      color: #666;
+      font-weight: 700;
+      line-height: 1.45;
     }
-    .add-logic-group-btn:hover { background: #16a085; }
-    .delete-logic-group {
-      background: #ff6b6b;
-      color: white;
-      border: none;
-      padding: 4px 8px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 10px;
-    }
-    .delete-logic-group:hover { background: #ff5252; }
-    .logic-group-header-controls { display: flex; gap: 4px; }
   </style>
 </head>
 
@@ -227,6 +367,9 @@
   <div class="container">
     <header>
       <h1>📊 거래로직 분석 도구</h1>
+      <div class="hint">
+        ✅ 로직별 엑셀 업로드 → 자동 병합 → 미리보기 강조 → 결과 엑셀 다운로드
+      </div>
     </header>
 
     <div class="left-panel">
@@ -237,422 +380,547 @@
 
     <div class="main-content">
       <div class="controls-section">
-        <h3 style="margin-bottom: 12px; color: #1e8449;">필터링 조건</h3>
+        <h3>필터링(강조) 조건</h3>
 
-        <div class="control-group">
-          <label>
-            <input type="checkbox" id="filterStopLoss" onchange="applyFilters()">
-            손절횟수 n 이하
-          </label>
-          <input type="number" id="stopLossThreshold" placeholder="n 입력" value="0" min="0" onchange="applyFilters()" disabled>
+        <div class="control-row">
+          <div class="control-group">
+            <label>
+              <input type="checkbox" id="filterStopLoss" onchange="renderAll()">
+              손절횟수 n 이하 강조
+            </label>
+          </div>
+          <div class="control-group">
+            <input type="number" id="stopLossThreshold" value="0" min="0" onchange="renderAll()" disabled>
+          </div>
         </div>
 
-        <div class="control-group">
-          <label>
-            <input type="checkbox" id="filterPositiveProfit" onchange="applyFilters()">
-            순이익이 양수
-          </label>
-        </div>
-
-        <div class="btn-group">
+        <div class="control-row">
+          <div class="control-group">
+            <label>
+              <input type="checkbox" id="filterPositiveProfit" onchange="renderAll()">
+              순이익이 양수 강조
+            </label>
+          </div>
           <button class="btn-secondary" onclick="clearAllFilters()">필터 초기화</button>
+        </div>
+
+        <div class="hint">
+          - “강조”는 데이터 삭제가 아니라 <b>해당 줄만</b> 연두색 표시예요.<br/>
+          - 로직 파일은 <b>Total_Result</b> 시트를 우선 사용하고, 없으면 첫 시트를 사용해요.<br/>
+          - 파일 내부에서 <b>‘Group Name’ 헤더가 있는 행</b>부터 자동 인식해요.
         </div>
       </div>
 
       <div class="table-wrapper">
         <table id="resultTable">
-          <thead>
-            <tr>
-              <th>그룹명</th>
-              <th>익절금액</th>
-              <th>손절금액</th>
-              <th>수수료</th>
-              <th>확정손익금</th>
-              <th>미실현손익</th>
-              <th>순이익</th>
-              <th>익절횟수</th>
-              <th>손절횟수</th>
-              <th>승률</th>
-            </tr>
-          </thead>
-          <tbody id="resultTableBody">
-            <tr><td colspan="10" style="text-align: center; color: #999;">아직 데이터가 없습니다. 엑셀 파일을 업로드해주세요.</td></tr>
+          <thead id="resultThead"></thead>
+          <tbody id="resultTbody">
+            <tr><td style="padding:18px; color:#999; text-align:center;">아직 데이터가 없습니다. 왼쪽에서 로직 집단에 엑셀을 업로드하세요.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
     <footer>
-      <button class="btn-primary" onclick="downloadExcel()">📥 엑셀 파일 다운로드</button>
-      <button class="btn-primary" onclick="clearAllData()" style="background: #ff6b6b;">🗑️ 모든 데이터 초기화</button>
+      <button class="btn-primary" onclick="downloadResultExcel()">📥 결과 엑셀 다운로드</button>
+      <button class="btn-primary btn-danger" onclick="resetAll()">🗑️ 전체 초기화</button>
     </footer>
   </div>
 
   <script>
+    // ---------------------------
+    // 상태
+    // ---------------------------
     let logicGroups = [];
-    let allData = [];
 
-    // ✅ 저장은 "그룹 메타"만 (파일 데이터는 저장하지 않음)
-    function saveToStorage() {
-      try {
-        const meta = logicGroups.map(g => ({
-          id: g.id,
-          name: g.name,
-          subtitle: g.subtitle,
-          isCollapsed: g.isCollapsed,
-          files: [] // 파일 데이터는 저장하지 않음 (용량/실패 방지)
-        }));
-        localStorage.setItem('logicGroups', JSON.stringify(meta));
-      } catch (e) {
-        console.warn("localStorage save failed:", e);
-      }
+    // group schema:
+    // { id, subtitle, files:[{name, rows:[]}], collapsed:false, merged:{ [groupName]: {tp, sl, np} } }
+
+    // ---------------------------
+    // 유틸
+    // ---------------------------
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2);
     }
 
-    function loadFromStorage() {
-      const saved = localStorage.getItem('logicGroups');
-      if (saved) {
-        try {
-          const meta = JSON.parse(saved);
-          logicGroups = meta.map(g => ({
-            id: g.id,
-            name: g.name,
-            subtitle: g.subtitle,
-            isCollapsed: !!g.isCollapsed,
-            files: [] // 새로고침 후 파일은 다시 업로드
-          }));
-          renderLogicGroups();
-        } catch (e) {
-          logicGroups = [];
-          addLogicGroup();
-        }
-      } else {
-        addLogicGroup();
-      }
+    function toNum(v) {
+      if (v === null || v === undefined || v === "") return 0;
+      if (typeof v === "number") return v;
+      const s = String(v).replace(/,/g, "").trim();
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
     }
 
-    function addLogicGroup() {
-      const groupId = Date.now();
-      logicGroups.push({
-        id: groupId,
-        name: `로직${logicGroups.length + 1}`,
-        subtitle: '313 - 15%',
-        files: [],
-        isCollapsed: false
+    function fmtInt(v) {
+      const n = Math.round(toNum(v));
+      return Number.isFinite(n) ? String(n) : "";
+    }
+
+    function fmtFloat2(v) {
+      const n = toNum(v);
+      if (!Number.isFinite(n)) return "";
+      // 순이익은 소수 2자리 정도로 보기 좋게
+      return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, "");
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // ---------------------------
+    // 엑셀 파싱 (핵심: "Group Name" 헤더행 찾기)
+    // ---------------------------
+    function parseIntegratedTotalResult(arrayBuffer) {
+      if (!window.XLSX) throw new Error("XLSX 라이브러리가 로드되지 않았습니다.");
+
+      const wb = XLSX.read(arrayBuffer, { type: "array" });
+      const sheet = wb.Sheets["Total_Result"] || wb.Sheets[wb.SheetNames[0]];
+      if (!sheet) throw new Error("시트를 찾을 수 없습니다.");
+
+      // 2차원 배열로 읽기 (헤더 자동추정 금지)
+      const aoa = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: "",
+        blankrows: false,
+        raw: true
       });
-      saveToStorage();
+
+      // "Group Name" 헤더 행 찾기
+      let headerRowIdx = -1;
+      const MAX_SCAN = Math.min(aoa.length, 200);
+      for (let r = 0; r < MAX_SCAN; r++) {
+        const row = aoa[r] || [];
+        const hasGroupName = row.some(cell => String(cell).trim() === "Group Name" || String(cell).trim() === "그룹명");
+        if (hasGroupName) {
+          headerRowIdx = r;
+          break;
+        }
+      }
+      if (headerRowIdx === -1) {
+        throw new Error("‘Group Name’(또는 ‘그룹명’) 헤더 행을 찾지 못했습니다. 파일 형식을 확인하세요.");
+      }
+
+      const header = (aoa[headerRowIdx] || []).map(x => String(x).trim());
+      const rows = [];
+
+      for (let r = headerRowIdx + 1; r < aoa.length; r++) {
+        const row = aoa[r] || [];
+        // 완전 빈 행 스킵
+        const nonEmpty = row.some(v => String(v).trim() !== "");
+        if (!nonEmpty) continue;
+
+        const obj = {};
+        for (let c = 0; c < header.length; c++) {
+          const key = header[c];
+          if (!key) continue;
+          obj[key] = row[c];
+        }
+
+        // Group Name 키가 비면 스킵
+        const gname = String(obj["Group Name"] || obj["그룹명"] || "").trim();
+        if (!gname) continue;
+
+        rows.push(obj);
+      }
+
+      return rows;
+    }
+
+    // ---------------------------
+    // 로직 그룹 CRUD
+    // ---------------------------
+    function addLogicGroup() {
+      logicGroups.push({
+        id: uid(),
+        subtitle: "",
+        files: [],
+        collapsed: false,
+        merged: {}
+      });
+      renderLogicGroups();
+      renderAll();
+    }
+
+    function deleteLogicGroup(id) {
+      if (!confirm("이 로직 집단을 삭제할까요?")) return;
+      logicGroups = logicGroups.filter(g => g.id !== id);
+      renderLogicGroups();
+      renderAll();
+    }
+
+    function toggleLogicGroup(id) {
+      const g = logicGroups.find(x => x.id === id);
+      if (!g) return;
+      g.collapsed = !g.collapsed;
       renderLogicGroups();
     }
 
-    function deleteLogicGroup(groupId) {
-      if (confirm('이 로직 집단을 삭제하시겠습니까?')) {
-        logicGroups = logicGroups.filter(g => g.id !== groupId);
-        saveToStorage();
-        renderLogicGroups();
-        applyFilters();
+    function updateSubtitle(id, value) {
+      const g = logicGroups.find(x => x.id === id);
+      if (!g) return;
+      g.subtitle = value;
+      renderLogicGroups();
+      renderAll();
+    }
+
+    async function addFilesToGroup(id, event) {
+      const g = logicGroups.find(x => x.id === id);
+      if (!g) return;
+
+      if (!window.XLSX) {
+        alert("엑셀 파서(XLSX) 라이브러리가 로드되지 않았습니다. 새로고침 후 다시 시도하세요.");
+        event.target.value = "";
+        return;
+      }
+
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+
+      for (const file of files) {
+        try {
+          const buf = await file.arrayBuffer();
+          const rows = parseIntegratedTotalResult(buf);
+
+          g.files.push({
+            name: file.name,
+            rows: rows
+          });
+        } catch (e) {
+          alert(`파일 ${file.name} 파싱 실패: ${e.message}`);
+        }
+      }
+
+      event.target.value = "";
+      renderLogicGroups();
+      renderAll();
+    }
+
+    function removeFileFromGroup(id, idx) {
+      const g = logicGroups.find(x => x.id === id);
+      if (!g) return;
+      g.files.splice(idx, 1);
+      renderLogicGroups();
+      renderAll();
+    }
+
+    // ---------------------------
+    // 병합 규칙: 같은 로직 집단 내부에서 그룹명 중복이면
+    // 익절횟수/손절횟수/순이익 3개만 합산
+    // ---------------------------
+    function rebuildMerged() {
+      for (const g of logicGroups) {
+        const map = {}; // groupName -> {tp, sl, np}
+
+        for (const f of g.files) {
+          for (const row of (f.rows || [])) {
+            const name = String(row["Group Name"] || row["그룹명"] || "").trim();
+            if (!name) continue;
+
+            if (!map[name]) map[name] = { tp: 0, sl: 0, np: 0 };
+
+            map[name].tp += toNum(row["익절횟수"]);
+            map[name].sl += toNum(row["손절횟수"]);
+            map[name].np += toNum(row["순이익"]);
+          }
+        }
+
+        g.merged = map;
       }
     }
 
-    function renderLogicGroups() {
-      const container = document.getElementById('logicGroupsContainer');
-      container.innerHTML = '';
+    function getAllGroupNames() {
+      const set = new Set();
+      for (const g of logicGroups) {
+        for (const name of Object.keys(g.merged || {})) set.add(name);
+      }
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
 
-      logicGroups.forEach((group) => {
-        const groupHtml = `
-          <div class="logic-group" data-group-id="${group.id}">
-            <div class="logic-group-header" onclick="toggleLogicGroup(${group.id})">
+    // ---------------------------
+    // 렌더: 왼쪽 패널
+    // ---------------------------
+    function renderLogicGroups() {
+      const container = document.getElementById("logicGroupsContainer");
+      container.innerHTML = "";
+
+      if (logicGroups.length === 0) {
+        container.innerHTML = `<div class="hint" style="padding:8px 2px;">로직 집단을 추가하세요.</div>`;
+        return;
+      }
+
+      logicGroups.forEach((g, idx) => {
+        const logicLabel = `로직${idx + 1}`;
+        const subtitle = g.subtitle ? escapeHtml(g.subtitle) : "<span style='color:#999;'>부제목 없음</span>";
+
+        const filesHtml = (g.files || []).map((f, i) => {
+          return `
+            <div class="file-item">
+              <span class="file-name">${escapeHtml(f.name)}</span>
+              <button class="btn-small" onclick="removeFileFromGroup('${g.id}', ${i})">제거</button>
+            </div>
+          `;
+        }).join("");
+
+        const html = `
+          <div class="logic-group">
+            <div class="logic-group-header" onclick="toggleLogicGroup('${g.id}')">
               <div>
                 <div class="logic-group-title">
-                  <span class="toggle-icon ${group.isCollapsed ? 'collapsed' : ''}">▼</span>
-                  ${group.name}
+                  <span class="toggle-icon ${g.collapsed ? "collapsed" : ""}">▼</span>
+                  ${logicLabel}
                 </div>
-                <div class="logic-group-subtitle">${group.subtitle}</div>
+                <div class="logic-group-subtitle">${subtitle}</div>
               </div>
               <div class="logic-group-header-controls">
-                <button class="delete-logic-group" onclick="event.stopPropagation(); deleteLogicGroup(${group.id})">삭제</button>
+                <button class="delete-logic-group" onclick="event.stopPropagation(); deleteLogicGroup('${g.id}')">삭제</button>
               </div>
             </div>
-            <div class="logic-group-content ${group.isCollapsed ? 'hidden' : ''}">
-              <div style="margin-bottom: 8px;">
-                <label style="font-size: 11px; color: #666;">로직 이름:</label>
-                <input type="text" value="${group.name}" onchange="updateGroupName(${group.id}, this.value)"
-                  style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;">
+
+            <div class="logic-group-content ${g.collapsed ? "hidden" : ""}">
+              <div class="field">
+                <label>부제목 (예: 313 - 15%)</label>
+                <input type="text" value="${escapeHtml(g.subtitle || "")}" placeholder="예: 313 - 15%"
+                  onchange="updateSubtitle('${g.id}', this.value)" />
               </div>
-              <div style="margin-bottom: 8px;">
-                <label style="font-size: 11px; color: #666;">부제목 (예: 313 - 15%):</label>
-                <input type="text" value="${group.subtitle}" onchange="updateGroupSubtitle(${group.id}, this.value)"
-                  style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;">
+
+              <div class="field">
+                <label>엑셀 업로드 (여러 개 가능)</label>
+                <input type="file" accept=".xlsx,.xls,.csv" multiple onchange="addFilesToGroup('${g.id}', event)" />
               </div>
-              <div style="margin-bottom: 8px;">
-                <input type="file" accept=".xlsx,.xls,.csv" multiple onchange="addFilesToGroup(${group.id}, event)">
-              </div>
-              <div id="files-${group.id}">
-                ${group.files.map((file, idx) => `
-                  <div class="file-item">
-                    <span class="file-name">${file.name}</span>
-                    <button class="btn-small" onclick="removeFileFromGroup(${group.id}, ${idx})">제거</button>
-                  </div>
-                `).join('')}
+
+              <div>
+                ${filesHtml || `<div class="hint" style="padding:2px 2px;">업로드된 파일 없음</div>`}
               </div>
             </div>
           </div>
         `;
-        container.innerHTML += groupHtml;
+
+        container.insertAdjacentHTML("beforeend", html);
       });
     }
 
-    function toggleLogicGroup(groupId) {
-      const group = logicGroups.find(g => g.id === groupId);
-      if (group) {
-        group.isCollapsed = !group.isCollapsed;
-        saveToStorage();
-        renderLogicGroups();
-      }
-    }
+    // ---------------------------
+    // 렌더: 결과 테이블(미리보기)
+    // - 이미지처럼: 로직당 2열(라벨/값), 그룹당 3행(익절/손절/순이익)
+    // - 강조는 해당 줄(손절/순이익)만 연두색
+    // ---------------------------
+    function renderResultTable() {
+      const thead = document.getElementById("resultThead");
+      const tbody = document.getElementById("resultTbody");
 
-    function updateGroupName(groupId, newName) {
-      const group = logicGroups.find(g => g.id === groupId);
-      if (group) {
-        group.name = newName || `로직${logicGroups.indexOf(group) + 1}`;
-        saveToStorage();
-        renderLogicGroups();
-        applyFilters();
-      }
-    }
+      const filterStopLoss = document.getElementById("filterStopLoss").checked;
+      const filterPositiveProfit = document.getElementById("filterPositiveProfit").checked;
+      const stopLossThreshold = parseInt(document.getElementById("stopLossThreshold").value, 10) || 0;
 
-    function updateGroupSubtitle(groupId, newSubtitle) {
-      const group = logicGroups.find(g => g.id === groupId);
-      if (group) {
-        group.subtitle = newSubtitle;
-        saveToStorage();
-        renderLogicGroups();
-      }
-    }
+      document.getElementById("stopLossThreshold").disabled = !filterStopLoss;
 
-    // ✅ 핵심 수정: "Group Name" 헤더가 있는 행을 찾아 그 아래만 데이터로 파싱
-    function parseSheetSmart(sheet) {
-      const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); // 2D array
-      if (!aoa || aoa.length === 0) return [];
-
-      const headerRowIndex = aoa.findIndex(row =>
-        Array.isArray(row) && row.some(cell => String(cell).trim() === "Group Name")
-      );
-
-      // 못 찾으면 그냥 첫 줄을 헤더로 (CSV 등)
-      const hIdx = headerRowIndex >= 0 ? headerRowIndex : 0;
-      const headers = (aoa[hIdx] || []).map(h => String(h).trim());
-
-      const records = [];
-      for (let i = hIdx + 1; i < aoa.length; i++) {
-        const row = aoa[i] || [];
-        // 완전 빈 줄 스킵
-        const isBlank = row.every(v => String(v).trim() === "");
-        if (isBlank) continue;
-
-        const obj = {};
-        for (let j = 0; j < headers.length; j++) {
-          const key = headers[j];
-          if (!key) continue;
-          obj[key] = row[j];
-        }
-        records.push(obj);
-      }
-      return records;
-    }
-
-    function addFilesToGroup(groupId, event) {
-      const group = logicGroups.find(g => g.id === groupId);
-      if (!group) return;
-
-      if (!window.XLSX) {
-        alert('엑셀 파서(XLSX) 라이브러리가 로드되지 않았습니다. 새로고침 후 다시 시도해주세요.');
-        event.target.value = '';
+      if (logicGroups.length === 0) {
+        thead.innerHTML = "";
+        tbody.innerHTML = `<tr><td style="padding:18px; color:#999; text-align:center;">로직 집단이 없습니다. 왼쪽에서 로직 집단을 추가하세요.</td></tr>`;
         return;
       }
 
-      const files = Array.from(event.target.files);
-      const promises = files.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            try {
-              const workbook = XLSX.read(e.target.result, { type: 'array' });
+      const allNames = getAllGroupNames();
 
-              const preferred = 'Total_Result';
-              const sheet =
-                workbook.Sheets[preferred] ||
-                workbook.Sheets[workbook.SheetNames && workbook.SheetNames[0]];
+      // 헤더 2줄 생성
+      let h1 = `<tr>
+        <th rowspan="2" style="min-width:60px;">NO</th>
+        <th rowspan="2" style="min-width:180px;">그룹명</th>
+      `;
+      let h2 = `<tr class="subhead">`;
 
-              if (!sheet) {
-                const available = (workbook.SheetNames || []).join(', ');
-                throw new Error(`시트를 찾을 수 없습니다. (찾는 시트: ${preferred}) 현재 시트: [${available}]`);
-              }
-
-              const data = parseSheetSmart(sheet);
-
-              // "Group Name" 컬럼이 없으면 (요약만 있거나) 안내
-              const hasGroupName = data.some(r => (r["Group Name"] != null && String(r["Group Name"]).trim() !== ""));
-              if (!hasGroupName) {
-                throw new Error("데이터 영역에서 'Group Name' 컬럼을 찾지 못했습니다. (요약 블록만 파싱된 경우)");
-              }
-
-              group.files.push({ name: file.name, data });
-              resolve();
-            } catch (err) {
-              alert(`파일 ${file.name} 읽기 실패: ${err.message}`);
-              resolve();
-            }
-          };
-          reader.readAsArrayBuffer(file);
-        });
+      logicGroups.forEach((g, idx) => {
+        h1 += `<th colspan="2" style="min-width:160px;">로직${idx + 1}</th>`;
+        h2 += `<th colspan="2">${escapeHtml(g.subtitle || "")}</th>`;
       });
 
-      Promise.all(promises).then(() => {
-        saveToStorage();
-        renderLogicGroups();
-        applyFilters();
-      });
+      h1 += `</tr>`;
+      h2 += `</tr>`;
+      thead.innerHTML = h1 + h2;
 
-      event.target.value = '';
-    }
-
-    function removeFileFromGroup(groupId, fileIndex) {
-      const group = logicGroups.find(g => g.id === groupId);
-      if (group) {
-        group.files.splice(fileIndex, 1);
-        saveToStorage();
-        renderLogicGroups();
-        applyFilters();
-      }
-    }
-
-    function mergeGroupData() {
-      allData = [];
-
-      logicGroups.forEach(group => {
-        const groupData = {};
-
-        group.files.forEach(file => {
-          file.data.forEach(row => {
-            const groupName = row['Group Name']; // 여기서 이제 정상적으로 잡힘
-            if (groupName) {
-              if (!groupData[groupName]) {
-                groupData[groupName] = { ...row };
-              } else {
-                const keys = ['익절금액', '손절금액', '수수료', '확정손익금', '미실현손익', '순이익', '익절횟수', '손절횟수'];
-                keys.forEach(key => {
-                  groupData[groupName][key] =
-                    (parseFloat(groupData[groupName][key]) || 0) +
-                    (parseFloat(row[key]) || 0);
-                });
-              }
-            }
-          });
-        });
-
-        Object.entries(groupData).forEach(([name, data]) => {
-          allData.push({
-            ...data,
-            logicGroup: group.name,
-            logicId: group.id
-          });
-        });
-      });
-    }
-
-    function applyFilters() {
-      mergeGroupData();
-      const filterStopLoss = document.getElementById('filterStopLoss').checked;
-      const filterPositiveProfit = document.getElementById('filterPositiveProfit').checked;
-      const stopLossThreshold = parseInt(document.getElementById('stopLossThreshold').value) || 0;
-
-      document.getElementById('stopLossThreshold').disabled = !filterStopLoss;
-
-      const tbody = document.getElementById('resultTableBody');
-      if (allData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #999;">데이터가 없습니다.</td></tr>';
+      if (allNames.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${2 + logicGroups.length * 2}" style="padding:18px; color:#999; text-align:center;">업로드된 데이터가 없습니다.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = allData.map((row) => {
-        const stopLossCount = parseFloat(row['손절횟수']) || 0;
-        const netProfit = parseFloat(row['순이익']) || 0;
+      let html = "";
 
-        let highlightStopLoss = filterStopLoss && stopLossCount <= stopLossThreshold;
-        let highlightProfit = filterPositiveProfit && netProfit > 0;
-        let shouldHighlight = (filterStopLoss && highlightStopLoss) || (filterPositiveProfit && highlightProfit);
+      allNames.forEach((name, i) => {
+        const rowBase = (metricLabel, metricKey) => {
+          let tr = `<tr>`;
+          if (metricKey === "tp") {
+            tr += `<td rowspan="3">${i + 1}</td>`;
+            tr += `<td rowspan="3" class="group-name">${escapeHtml(name)}</td>`;
+          }
 
-        return `
-          <tr>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${row['Group Name'] || ''}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['익절금액']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['손절금액']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['수수료']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['확정손익금']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['미실현손익']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${(parseFloat(row['순이익']) || 0).toFixed(2)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${Math.round(parseFloat(row['익절횟수']) || 0)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${Math.round(parseFloat(row['손절횟수']) || 0)}</td>
-            <td class="${shouldHighlight ? 'highlight' : ''}">${row['승률'] || ''}</td>
-          </tr>
-        `;
-      }).join('');
+          logicGroups.forEach((g) => {
+            const v = (g.merged && g.merged[name]) ? g.merged[name] : { tp: "", sl: "", np: "" };
+
+            let isHL = false;
+            if (metricKey === "sl" && filterStopLoss) {
+              isHL = toNum(v.sl) <= stopLossThreshold;
+            }
+            if (metricKey === "np" && filterPositiveProfit) {
+              isHL = toNum(v.np) > 0;
+            }
+
+            tr += `<td class="metric ${isHL ? "hl" : ""}">${metricLabel}</td>`;
+            let valueText = "";
+            if (metricKey === "tp") valueText = v.tp === "" ? "" : fmtInt(v.tp);
+            if (metricKey === "sl") valueText = v.sl === "" ? "" : fmtInt(v.sl);
+            if (metricKey === "np") valueText = v.np === "" ? "" : fmtFloat2(v.np);
+
+            tr += `<td class="${isHL ? "hl" : ""}">${valueText}</td>`;
+          });
+
+          tr += `</tr>`;
+          return tr;
+        };
+
+        html += rowBase("익절횟수", "tp");
+        html += rowBase("손절횟수", "sl");
+        html += rowBase("순이익", "np");
+      });
+
+      tbody.innerHTML = html;
     }
 
+    function renderAll() {
+      rebuildMerged();
+      renderResultTable();
+    }
+
+    // ---------------------------
+    // 필터
+    // ---------------------------
     function clearAllFilters() {
-      document.getElementById('filterStopLoss').checked = false;
-      document.getElementById('filterPositiveProfit').checked = false;
-      document.getElementById('stopLossThreshold').value = '0';
-      applyFilters();
+      document.getElementById("filterStopLoss").checked = false;
+      document.getElementById("filterPositiveProfit").checked = false;
+      document.getElementById("stopLossThreshold").value = "0";
+      renderAll();
     }
 
-    function downloadExcel() {
-      if (allData.length === 0) {
-        alert('다운로드할 데이터가 없습니다.');
+    // ---------------------------
+    // 결과 엑셀 다운로드
+    // - 이미지 레이아웃: 2단 헤더 + 로직당 (라벨/값) 2열 + 그룹당 3행
+    // - 병합(merge) 포함
+    // ---------------------------
+    function downloadResultExcel() {
+      rebuildMerged();
+
+      const allNames = getAllGroupNames();
+      if (logicGroups.length === 0 || allNames.length === 0) {
+        alert("다운로드할 데이터가 없습니다.");
         return;
       }
-
       if (!window.XLSX) {
-        alert('엑셀 생성(XLSX) 라이브러리가 로드되지 않았습니다. 새로고침 후 다시 시도해주세요.');
+        alert("엑셀 생성(XLSX) 라이브러리가 로드되지 않았습니다. 새로고침 후 다시 시도하세요.");
         return;
       }
 
-      const headers = ['그룹명', '익절금액', '손절금액', '수수료', '확정손익금', '미실현손익', '순이익', '익절횟수', '손절횟수', '승률'];
-      const rows = allData.map(row => [
-        row['Group Name'] || '',
-        (parseFloat(row['익절금액']) || 0).toFixed(2),
-        (parseFloat(row['손절금액']) || 0).toFixed(2),
-        (parseFloat(row['수수료']) || 0).toFixed(2),
-        (parseFloat(row['확정손익금']) || 0).toFixed(2),
-        (parseFloat(row['미실현손익']) || 0).toFixed(2),
-        (parseFloat(row['순이익']) || 0).toFixed(2),
-        Math.round(parseFloat(row['익절횟수']) || 0),
-        Math.round(parseFloat(row['손절횟수']) || 0),
-        row['승률'] || ''
-      ]);
+      const filterStopLoss = document.getElementById("filterStopLoss").checked;
+      const filterPositiveProfit = document.getElementById("filterPositiveProfit").checked;
+      const stopLossThreshold = parseInt(document.getElementById("stopLossThreshold").value, 10) || 0;
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const logicCount = logicGroups.length;
+      const colCount = 2 + logicCount * 2;
 
-      ws['!cols'] = [
-        { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
-        { wch: 10 }, { wch: 10 }
+      // AOA 구성
+      const aoa = [];
+
+      // Row 1: NO, 그룹명, 로직1(2칸), 로직2(2칸)...
+      const r1 = ["NO", "그룹명"];
+      for (let i = 0; i < logicCount; i++) r1.push(`로직${i + 1}`, "");
+      aoa.push(r1);
+
+      // Row 2: subtitles
+      const r2 = ["", ""];
+      for (let i = 0; i < logicCount; i++) r2.push(logicGroups[i].subtitle || "", "");
+      aoa.push(r2);
+
+      // Body: group마다 3행
+      allNames.forEach((name, idx) => {
+        // 익절횟수
+        const a = [idx + 1, name];
+        // 손절횟수
+        const b = ["", ""];
+        // 순이익
+        const c = ["", ""];
+
+        for (let i = 0; i < logicCount; i++) {
+          const g = logicGroups[i];
+          const v = (g.merged && g.merged[name]) ? g.merged[name] : { tp: "", sl: "", np: "" };
+
+          a.push("익절횟수", v.tp === "" ? "" : Math.round(toNum(v.tp)));
+          b.push("손절횟수", v.sl === "" ? "" : Math.round(toNum(v.sl)));
+          c.push("순이익",  v.np === "" ? "" : (Math.round(toNum(v.np) * 100) / 100));
+        }
+
+        aoa.push(a, b, c);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // 열 너비
+      ws["!cols"] = [
+        { wch: 6 },   // NO
+        { wch: 18 },  // 그룹명
+        ...Array.from({ length: logicCount }, () => ([{ wch: 10 }, { wch: 10 }])).flat()
       ];
 
-      XLSX.utils.book_append_sheet(wb, ws, '분석결과');
-      XLSX.writeFile(wb, `거래분석_${new Date().getTime()}.xlsx`);
-    }
+      // 병합(merge)
+      const merges = [];
 
-    function clearAllData() {
-      if (confirm('모든 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-        logicGroups = [];
-        allData = [];
-        localStorage.clear();
-        location.reload();
+      // NO, 그룹명 헤더 2행 병합
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
+      merges.push({ s: { r: 0, c: 1 }, e: { r: 1, c: 1 } });
+
+      // 로직 헤더 병합 (row 0, row 1 각각 2칸)
+      for (let i = 0; i < logicCount; i++) {
+        const c0 = 2 + i * 2;
+        merges.push({ s: { r: 0, c: c0 }, e: { r: 0, c: c0 + 1 } });
+        merges.push({ s: { r: 1, c: c0 }, e: { r: 1, c: c0 + 1 } });
       }
+
+      // 그룹명/NO 바디 3행 병합
+      // 바디 시작 row index = 2
+      for (let gi = 0; gi < allNames.length; gi++) {
+        const rStart = 2 + gi * 3;
+        merges.push({ s: { r: rStart, c: 0 }, e: { r: rStart + 2, c: 0 } });
+        merges.push({ s: { r: rStart, c: 1 }, e: { r: rStart + 2, c: 1 } });
+      }
+
+      ws["!merges"] = merges;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "결과");
+
+      const ts = new Date();
+      const stamp = `${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,"0")}${String(ts.getDate()).padStart(2,"0")}_${String(ts.getHours()).padStart(2,"0")}${String(ts.getMinutes()).padStart(2,"0")}`;
+      XLSX.writeFile(wb, `로직_통합결과_${stamp}.xlsx`);
     }
 
-    window.addEventListener('load', loadFromStorage);
+    // ---------------------------
+    // 전체 초기화
+    // ---------------------------
+    function resetAll() {
+      if (!confirm("전체 초기화할까요? (로직 집단/업로드 파일 모두 삭제)")) return;
+      logicGroups = [];
+      renderLogicGroups();
+      renderAll();
+    }
+
+    // ---------------------------
+    // 초기화
+    // ---------------------------
+    window.addEventListener("load", () => {
+      addLogicGroup(); // 기본 1개는 생성
+    });
   </script>
 </body>
 </html>
